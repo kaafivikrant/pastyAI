@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QuickLLM</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 12px;
+      background: #f5f5f5;
+      font-size: 13px;
+      width: 280px;
+      color: #333;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .header h3 {
+      margin: 0;
+      color: #007AFF;
+      font-weight: 600;
+    }
+
+    .mode-selector {
+      margin-bottom: 16px;
+    }
+
+    .mode-selector label {
+      display: block;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .mode-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .mode-btn {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .mode-btn:hover {
+      background: #f0f0f0;
+    }
+
+    .mode-btn.active {
+      background: #007AFF;
+      color: white;
+      border-color: #007AFF;
+    }
+
+    .shortcuts {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid #ddd;
+    }
+
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .shortcut-item:last-child {
+      border-bottom: none;
+    }
+
+    .shortcut-key {
+      font-family: monospace;
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    .history {
+      background: white;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      border: 1px solid #ddd;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+    }
+
+    .history-item:hover {
+      background: #f9f9f9;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-original {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .history-processed {
+      font-size: 12px;
+      color: #333;
+    }
+
+    .history-meta {
+      font-size: 10px;
+      color: #999;
+      margin-top: 4px;
+    }
+
+    .controls {
+      text-align: center;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      margin: 0 4px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #f0f0f0;
+    }
+
+    .btn.primary {
+      background: #007AFF;
+      color: white;
+      border-color: #007AFF;
+    }
+
+    .status {
+      text-align: center;
+      padding: 8px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .status.processing {
+      background: #FFF3CD;
+      color: #856404;
+      border: 1px solid #FFEAA7;
+    }
+
+    .status.success {
+      background: #D4EDDA;
+      color: #155724;
+      border: 1px solid #C3E6CB;
+    }
+
+    .status.error {
+      background: #F8D7DA;
+      color: #721C24;
+      border: 1px solid #F5C6CB;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3>⚡ QuickLLM</h3>
+  </div>
+
+  <div id="status" class="status hidden">
+    <span id="status-text">Ready</span>
+  </div>
+
+  <div class="mode-selector">
+    <label>Current Mode:</label>
+    <div class="mode-buttons">
+      <button class="mode-btn active" data-mode="summarize">📝 Summarize</button>
+      <button class="mode-btn" data-mode="translate">🌐 Translate</button>
+      <button class="mode-btn" data-mode="simplify">✨ Simplify</button>
+      <button class="mode-btn" data-mode="explain">💡 Explain</button>
+      <button class="mode-btn" data-mode="maths">🧮 Maths</button>
+    </div>
+  </div>
+
+  <div class="shortcuts">
+    <div class="shortcut-item">
+      <span>Copy & Process</span>
+      <span class="shortcut-key">⌘⇧C</span>
+    </div>
+    <div class="shortcut-item">
+      <span>Paste Result</span>
+      <span class="shortcut-key">⌘⇧V</span>
+    </div>
+    <div class="shortcut-item">
+      <span>Quick Summarize</span>
+      <span class="shortcut-key">⌘⇧1</span>
+    </div>
+    <div class="shortcut-item">
+      <span>Quick Translate</span>
+      <span class="shortcut-key">⌘⇧2</span>
+    </div>
+  </div>
+
+  <div class="history">
+    <label style="font-weight: 500; margin-bottom: 8px; display: block;">Recent History:</label>
+    <div id="history-list">
+      <div style="text-align: center; color: #999; font-style: italic;">No history yet</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="openSettings()">Settings</button>
+    <button class="btn" onclick="testConnection()">Test</button>
+    <button class="btn primary" onclick="clearHistory()">Clear</button>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    // Mode selection
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        const mode = e.target.dataset.mode;
+        console.log('Setting mode to:', mode);
+        // Send to main process
+        ipcRenderer.send('set-mode', mode);
+      });
+    });
+
+    // History item click
+    function copyToClipboard(text) {
+      const { clipboard } = require('electron');
+      clipboard.writeText(text);
+      showStatus('Copied to clipboard!', 'success');
+    }
+
+    // Status display
+    function showStatus(message, type = 'processing') {
+      const status = document.getElementById('status');
+      const statusText = document.getElementById('status-text');
+      
+      statusText.textContent = message;
+      status.className = `status ${type}`;
+      status.classList.remove('hidden');
+      
+      if (type === 'success') {
+        setTimeout(() => {
+          status.classList.add('hidden');
+        }, 2000);
+      }
+    }
+
+    // Functions for buttons
+    function openSettings() {
+      console.log('Opening settings...');
+      ipcRenderer.send('open-settings');
+    }
+
+    function testConnection() {
+      showStatus('Testing connection...', 'processing');
+      ipcRenderer.send('test-connection');
+    }
+
+    function clearHistory() {
+      ipcRenderer.send('clear-history');
+      updateHistoryDisplay([]);
+    }
+
+    // Update history display
+    function updateHistoryDisplay(history) {
+      const historyList = document.getElementById('history-list');
+      
+      if (history.length === 0) {
+        historyList.innerHTML = '<div style="text-align: center; color: #999; font-style: italic;">No history yet</div>';
+        return;
+      }
+      
+      historyList.innerHTML = history.map(item => `
+        <div class="history-item" onclick="copyToClipboard('${item.processed.replace(/'/g, "\\'")}')">
+          <div class="history-original">${item.original}</div>
+          <div class="history-processed">${item.processed.substring(0, 100)}${item.processed.length > 100 ? '...' : ''}</div>
+          <div class="history-meta">${item.mode} • ${new Date(item.timestamp).toLocaleTimeString()}</div>
+        </div>
+      `).join('');
+    }
+
+    // Listen for updates from main process
+    ipcRenderer.on('status-update', (event, message, type) => {
+      showStatus(message, type);
+    });
+
+    ipcRenderer.on('history-update', (event, history) => {
+      updateHistoryDisplay(history);
+    });
+
+    ipcRenderer.on('mode-update', (event, mode) => {
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.mode === mode) {
+          btn.classList.add('active');
+        }
+      });
+    });
+
+    // Request initial data when window opens
+    ipcRenderer.send('request-initial-data');
+  </script>
+</body>
+</html>
