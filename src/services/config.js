@@ -1,7 +1,13 @@
 class ConfigService {
   constructor(store) {
     this.store = store;
+    this.loadEnvironmentVariables();
     this.initializeDefaults();
+  }
+
+  loadEnvironmentVariables() {
+    // Load environment variables from .env file
+    require('dotenv').config();
   }
 
   initializeDefaults() {
@@ -16,6 +22,11 @@ class ConfigService {
         openrouterModel: 'meta-llama/llama-3-8b-instruct'
       },
       modes: {
+        auto: {
+          name: 'Auto',
+          systemPrompt: 'You are a helpful assistant that automatically detects the best way to process text. Adapt your response based on the content.',
+          hotkey: null
+        },
         summarize: {
           name: 'Summarize',
           systemPrompt: 'You are a helpful assistant that summarizes text concisely. Provide a clear, bullet-pointed summary of the key points. Keep it brief but comprehensive.',
@@ -110,9 +121,11 @@ class ConfigService {
     
     switch (currentProvider) {
       case 'groq':
-        return modelConfig.groqApiKey;
+        // Prefer environment variable, fallback to stored config
+        return process.env.GROQ_API_KEY || modelConfig.groqApiKey || '';
       case 'openrouter':
-        return modelConfig.openrouterApiKey;
+        // Prefer environment variable, fallback to stored config
+        return process.env.OPENROUTER_API_KEY || modelConfig.openrouterApiKey || '';
       default:
         return null;
     }

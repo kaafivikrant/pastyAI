@@ -159,12 +159,30 @@
         <label for="groq-api-key">Groq API Key:</label>
         <input type="password" id="groq-api-key" placeholder="Enter your Groq API key">
         <div class="model-info">Get your API key from <a href="https://console.groq.com/" target="_blank">console.groq.com</a></div>
+        
+        <label for="groq-model">Groq Model:</label>
+        <select id="groq-model">
+          <option value="llama3-8b-8192">Llama 3 8B</option>
+          <option value="llama3-70b-8192">Llama 3 70B</option>
+          <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+          <option value="gemma-7b-it">Gemma 7B IT</option>
+        </select>
+        <button class="btn" onclick="fetchModels('groq')" style="margin-top: 8px;">Fetch Available Models</button>
       </div>
 
       <div class="form-group hidden" id="openrouter-settings">
         <label for="openrouter-api-key">OpenRouter API Key:</label>
         <input type="password" id="openrouter-api-key" placeholder="Enter your OpenRouter API key">
         <div class="model-info">Get your API key from <a href="https://openrouter.ai/" target="_blank">openrouter.ai</a></div>
+        
+        <label for="openrouter-model">OpenRouter Model:</label>
+        <select id="openrouter-model">
+          <option value="meta-llama/llama-3-8b-instruct">Llama 3 8B Instruct</option>
+          <option value="meta-llama/llama-3-70b-instruct">Llama 3 70B Instruct</option>
+          <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+          <option value="openai/gpt-3.5-turbo">GPT-3.5 Turbo</option>
+        </select>
+        <button class="btn" onclick="fetchModels('openrouter')" style="margin-top: 8px;">Fetch Available Models</button>
       </div>
     </div>
 
@@ -174,6 +192,7 @@
       <div class="form-group">
         <label for="current-mode">Mode:</label>
         <select id="current-mode" onchange="loadModePrompt()">
+          <option value="auto">Auto (Smart Detection)</option>
           <option value="summarize">Summarize</option>
           <option value="translate">Translate</option>
           <option value="simplify">Simplify</option>
@@ -257,7 +276,9 @@
           provider: provider,
           ollamaModel: document.getElementById('ollama-model').value,
           groqApiKey: document.getElementById('groq-api-key').value,
-          openrouterApiKey: document.getElementById('openrouter-api-key').value
+          openrouterApiKey: document.getElementById('openrouter-api-key').value,
+          groqModel: document.getElementById('groq-model').value,
+          openrouterModel: document.getElementById('openrouter-model').value
         };
         
         store.set('model', { ...store.get('model', {}), ...modelConfig });
@@ -284,16 +305,65 @@
     function testConnection() {
       showStatus('Testing connection...', 'processing');
       
-      // This is a simplified test - in a real app we'd communicate with main process
-      setTimeout(() => {
-        const provider = document.getElementById('provider').value;
-        if (provider === 'ollama') {
-          showStatus('Test completed. Check console for details.', 'success');
-        } else {
-          showStatus('Cloud provider testing not implemented yet', 'error');
-        }
-      }, 1000);
+      // Save current settings first
+      saveSettings();
+      
+      // Send test request to main process
+      ipcRenderer.send('test-connection');
     }
+
+    function fetchModels(provider) {
+      showStatus(`Fetching ${provider} models...`, 'processing');
+      
+      // Save current settings first to ensure API keys are available
+      saveSettings();
+      
+      // Send fetch request to main process
+      ipcRenderer.send('fetch-models', provider);
+    }
+
+    // Listen for models response
+    ipcRenderer.on('models-fetched', (event, data) => {
+      const { provider, models, error } = data;
+      
+      if (error) {
+        showStatus(`Error fetching ${provider} models: ${error}`, 'error');
+        return;
+      }
+      
+      if (models.length === 0) {
+        showStatus(`No models found for ${provider}`, 'error');
+        return;
+      }
+      
+      // Update the appropriate dropdown
+      let selectElement;
+      if (provider === 'groq') {
+        selectElement = document.getElementById('groq-model');
+      } else if (provider === 'openrouter') {
+        selectElement = document.getElementById('openrouter-model');
+      }
+      
+      if (selectElement) {
+        // Clear existing options
+        selectElement.innerHTML = '';
+        
+        // Add new options
+        models.forEach(model => {
+          const option = document.createElement('option');
+          option.value = model.id || model.name;
+          option.textContent = model.id || model.name;
+          selectElement.appendChild(option);
+        });
+        
+        showStatus(`Successfully loaded ${models.length} ${provider} models`, 'success');
+      }
+    });
+
+    // Listen for status updates from main process
+    ipcRenderer.on('status-update', (event, message, type) => {
+      showStatus(message, type);
+    });
 
     function showStatus(message, type) {
       const status = document.getElementById('status');

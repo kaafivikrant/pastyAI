@@ -11,6 +11,7 @@ const GroqService = require('./services/groq');
 const OpenRouterService = require('./services/openrouter');
 const ConfigService = require('./services/config');
 const DatabaseService = require('./services/database');
+const IntentDetectionService = require('./services/intentDetection');
 
 class QuickLLMApp {
   constructor() {
@@ -25,6 +26,9 @@ class QuickLLMApp {
     this.ollama = new OllamaService(this.config);
     this.groq = new GroqService(this.config);
     this.openrouter = new OpenRouterService(this.config);
+    
+    // Initialize intent detection service
+    this.intentDetection = new IntentDetectionService(this.config);
     
     this.isProcessing = false;
     this.history = this.store.get('history', []);
@@ -159,8 +163,13 @@ class QuickLLMApp {
 
       console.log('Processing text:', text.substring(0, 50) + '...');
 
-      // Get current mode and AI service details
-      const mode = this.config.getCurrentMode();
+      // Use intent detection for smart mode selection
+      const currentMode = this.config.getCurrentMode();
+      const intentResult = await this.intentDetection.getProcessingIntent(text, currentMode === 'auto' ? null : currentMode);
+      const mode = intentResult.intent;
+      
+      console.log(`Intent Detection: ${mode} (confidence: ${(intentResult.confidence * 100).toFixed(1)}%) - ${intentResult.reason}`);
+
       const provider = this.config.getCurrentProvider();
       const model = this.config.getCurrentModel();
       const aiService = this.getCurrentAIService();
@@ -415,6 +424,30 @@ class QuickLLMApp {
     ipcMain.on('request-initial-data', (event) => {
       event.reply('mode-update', this.config.getCurrentMode());
       event.reply('history-update', this.history);
+    });
+
+    // Handle fetching available models
+    ipcMain.on('fetch-models', async (event, provider) => {
+      try {
+        let models = [];
+        
+        switch (provider) {
+          case 'groq':
+            models = await this.groq.getAvailableModels();
+            break;
+          case 'openrouter':
+            models = await this.openrouter.getAvailableModels();
+            break;
+          case 'ollama':
+            models = await this.ollama.getAvailableModels();
+            break;
+        }
+        
+        event.reply('models-fetched', { provider, models });
+      } catch (error) {
+        console.error('Error fetching models:', error);
+        event.reply('models-fetched', { provider, models: [], error: error.message });
+      }
     });
   }
 
