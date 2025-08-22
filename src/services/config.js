@@ -10,7 +10,7 @@ class ConfigService {
       model: {
         provider: 'ollama', // 'ollama', 'groq', 'openrouter'
         ollamaModel: 'qwen3:4b',
-        groqApiKey: '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',
+        groqApiKey: '',
         openrouterApiKey: '',
         groqModel: 'llama3-8b-8192',
         openrouterModel: 'meta-llama/llama-3-8b-instruct'
