@@ -1,4 +1,4 @@
-# ⚡ QuickLLM
+# ⚡ PastyAI
 
 A lightweight macOS menu bar app for quick LLM text processing. Copy text, process it with AI, and paste the result - all with global hotkeys.
 
