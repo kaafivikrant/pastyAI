@@ -213,3 +213,42 @@ Here is a summary of the calculation:
 
 • The result of the calculation is: 334
 
+
+
+
+Future Development
+
+- Code Comment Generation: For developers, process selected code snippets to generate explanatory comments or documentation.
+
+Implementation: Add a "Generate Comments" mode with a prompt like, "Add clear, concise comments to the following code snippet." Leverage Ollama’s larger models (e.g., llama3.1:8b) for better code understanding. Integrate with the clipboard workflow to process code copied from editors like VS Code.
+
+- Searchable History: Allow users to search through past processed texts using keywords or filters (e.g., by mode or date).
+
+Implementation: Store history in electron-store with metadata (timestamp, mode, input/output text). Add a search input field to src/index.html and filter history using JavaScript. Display results in a scrollable list with clickable items for copying.
+
+- Pinned Favorites: Let users pin frequently used processed texts for quick access.
+
+Implementation: Add a "Pin" button next to history items in the menu bar UI. Store pinned items separately in electron-store and display them at the top of the history list.
+
+- Hotkey Customization UI: Add a settings panel to map custom shortcuts for each mode and action (e.g., copy, paste, mode switching).
+
+Implementation: Extend src/settings.html with a hotkey configuration form. Use Electron’s globalShortcut API to register user-defined shortcuts dynamically. Store mappings in electron-store for persistence.
+
+- Share Processed Text: Allow users to share processed text (e.g., summaries) directly to apps like Slack, Messages, or email.
+
+Implementation: Add a “Share” button to the menu bar UI or drag-and-drop window. Use macOS’s share sheet API or integrate with APIs for Slack/Messages (requires OAuth for third-party services).
+
+- Dynamic Language Switching: Allow users to switch the UI language (e.g., English, Spanish, Hindi).
+
+Implementation: Use a library like i18next in Electron to manage translations. Store language files in assets/lang/ and add a language selector in src/settings.html.
+
+
+- RTL Support: Support right-to-left languages like Arabic or Hebrew.
+
+Implementation: Add CSS rules for RTL layouts in src/index.html and src/settings.html.
+
+
+
+
+
+
