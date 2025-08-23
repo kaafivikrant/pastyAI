@@ -233,8 +233,28 @@
         
         document.getElementById('provider').value = modelConfig.provider || 'ollama';
         document.getElementById('ollama-model').value = modelConfig.ollamaModel || 'qwen3:4b';
-        document.getElementById('groq-api-key').value = modelConfig.groqApiKey || '';
-        document.getElementById('openrouter-api-key').value = modelConfig.openrouterApiKey || '';
+        document.getElementById('groq-model').value = modelConfig.groqModel || 'llama3-8b-8192';
+        document.getElementById('openrouter-model').value = modelConfig.openrouterModel || 'meta-llama/llama-3-8b-instruct';
+        
+        // For API keys, show placeholder text if they exist but don't reveal actual keys
+        const groqKey = modelConfig.groqApiKey;
+        const openrouterKey = modelConfig.openrouterApiKey;
+        
+        if (groqKey && groqKey.trim() !== '') {
+          document.getElementById('groq-api-key').placeholder = 'API key configured (gsk_***)';
+        } else {
+          document.getElementById('groq-api-key').placeholder = 'Enter your Groq API key';
+        }
+        
+        if (openrouterKey && openrouterKey.trim() !== '') {
+          document.getElementById('openrouter-api-key').placeholder = 'API key configured (sk-or-***)';
+        } else {
+          document.getElementById('openrouter-api-key').placeholder = 'Enter your OpenRouter API key';
+        }
+        
+        // Clear the input fields for security
+        document.getElementById('groq-api-key').value = '';
+        document.getElementById('openrouter-api-key').value = '';
 
         // Load current mode
         const currentMode = store.get('currentMode', 'summarize');
@@ -271,17 +291,32 @@
       try {
         const provider = document.getElementById('provider').value;
         
-        // Save model config
+        // Save basic model config (without API keys)
         const modelConfig = {
           provider: provider,
           ollamaModel: document.getElementById('ollama-model').value,
-          groqApiKey: document.getElementById('groq-api-key').value,
-          openrouterApiKey: document.getElementById('openrouter-api-key').value,
           groqModel: document.getElementById('groq-model').value,
           openrouterModel: document.getElementById('openrouter-model').value
         };
         
         store.set('model', { ...store.get('model', {}), ...modelConfig });
+
+        // Securely store API keys if provided
+        const groqKey = document.getElementById('groq-api-key').value;
+        const openrouterKey = document.getElementById('openrouter-api-key').value;
+        
+        let keysSaved = 0;
+        let totalKeys = 0;
+        
+        if (groqKey && groqKey.trim() !== '') {
+          totalKeys++;
+          ipcRenderer.send('store-api-key', { provider: 'groq', apiKey: groqKey.trim() });
+        }
+        
+        if (openrouterKey && openrouterKey.trim() !== '') {
+          totalKeys++;
+          ipcRenderer.send('store-api-key', { provider: 'openrouter', apiKey: openrouterKey.trim() });
+        }
 
         // Save current mode prompt
         const mode = document.getElementById('current-mode').value;
@@ -296,7 +331,11 @@
         // Set current mode
         store.set('currentMode', mode);
 
-        showStatus('Settings saved successfully!', 'success');
+        if (totalKeys === 0) {
+          showStatus('Settings saved successfully!', 'success');
+        } else {
+          showStatus('Settings saved, securing API keys...', 'processing');
+        }
       } catch (error) {
         showStatus('Error saving settings: ' + error.message, 'error');
       }
@@ -363,6 +402,36 @@
     // Listen for status updates from main process
     ipcRenderer.on('status-update', (event, message, type) => {
       showStatus(message, type);
+    });
+
+    // Listen for API key storage responses
+    ipcRenderer.on('api-key-stored', (event, result) => {
+      if (result.success) {
+        showStatus(result.message, 'success');
+        // Clear the input field after successful storage
+        if (result.message.includes('Groq')) {
+          document.getElementById('groq-api-key').value = '';
+          document.getElementById('groq-api-key').placeholder = 'API key configured (gsk_***)';
+        } else if (result.message.includes('OpenRouter')) {
+          document.getElementById('openrouter-api-key').value = '';
+          document.getElementById('openrouter-api-key').placeholder = 'API key configured (sk-or-***)';
+        }
+      } else {
+        showStatus(result.message, 'error');
+      }
+    });
+
+    // Listen for API key validation responses
+    ipcRenderer.on('api-key-validated', (event, result) => {
+      const status = result.valid ? 'success' : 'error';
+      showStatus(`${result.provider} API key: ${result.message}`, status);
+    });
+
+    // Listen for masked API key responses
+    ipcRenderer.on('masked-api-key', (event, result) => {
+      if (result.masked) {
+        console.log(`${result.provider} API key: ${result.masked}`);
+      }
     });
 
     function showStatus(message, type) {

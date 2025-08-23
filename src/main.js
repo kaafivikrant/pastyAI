@@ -449,6 +449,48 @@ class QuickLLMApp {
         event.reply('models-fetched', { provider, models: [], error: error.message });
       }
     });
+
+    // Handle secure API key storage
+    ipcMain.on('store-api-key', async (event, data) => {
+      try {
+        const { provider, apiKey } = data;
+        const result = this.config.setApiKey(provider, apiKey);
+        event.reply('api-key-stored', result);
+      } catch (error) {
+        console.error('Error storing API key:', error);
+        event.reply('api-key-stored', { 
+          success: false, 
+          message: `Failed to store ${data.provider} API key: ${error.message}` 
+        });
+      }
+    });
+
+    // Handle API key validation
+    ipcMain.on('validate-api-key', async (event, data) => {
+      try {
+        const { provider } = data;
+        const validation = this.config.validateStoredApiKey(provider);
+        event.reply('api-key-validated', { provider, ...validation });
+      } catch (error) {
+        console.error('Error validating API key:', error);
+        event.reply('api-key-validated', { 
+          provider: data.provider,
+          valid: false, 
+          message: error.message 
+        });
+      }
+    });
+
+    // Handle getting masked API key for display
+    ipcMain.on('get-masked-api-key', async (event, provider) => {
+      try {
+        const masked = this.config.getMaskedApiKey(provider);
+        event.reply('masked-api-key', { provider, masked });
+      } catch (error) {
+        console.error('Error getting masked API key:', error);
+        event.reply('masked-api-key', { provider, masked: '', error: error.message });
+      }
+    });
   }
 
   openSettingsWindow() {

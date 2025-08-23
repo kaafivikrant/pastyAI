@@ -1,6 +1,9 @@
+const KeyManager = require('./keyManager');
+
 class ConfigService {
   constructor(store) {
     this.store = store;
+    this.keyManager = new KeyManager();
     this.loadEnvironmentVariables();
     this.initializeDefaults();
   }
@@ -95,6 +98,80 @@ class ConfigService {
     this.store.set('model', { ...this.getModelConfig(), ...config });
   }
 
+  // Secure API key storage methods
+  setApiKey(provider, apiKey) {
+    try {
+      if (!apiKey || apiKey.trim() === '') {
+        // Clear the key if empty
+        const modelConfig = this.getModelConfig();
+        if (provider === 'groq') {
+          modelConfig.groqApiKey = '';
+        } else if (provider === 'openrouter') {
+          modelConfig.openrouterApiKey = '';
+        }
+        this.setModelConfig(modelConfig);
+        return { success: true, message: `${provider} API key cleared` };
+      }
+
+      // Validate and encrypt the key
+      const validation = this.keyManager.validateApiKey(provider, apiKey);
+      if (!validation.valid) {
+        return { success: false, message: validation.message };
+      }
+
+      const encryptedKey = this.keyManager.encryptKey(apiKey);
+      const modelConfig = this.getModelConfig();
+      
+      if (provider === 'groq') {
+        modelConfig.groqApiKey = encryptedKey;
+      } else if (provider === 'openrouter') {
+        modelConfig.openrouterApiKey = encryptedKey;
+      }
+      
+      this.setModelConfig(modelConfig);
+      
+      const maskedKey = this.keyManager.maskKey(apiKey);
+      console.log(`Securely stored ${provider} API key: ${maskedKey}`);
+      
+      return { 
+        success: true, 
+        message: `${provider} API key saved successfully`,
+        masked: maskedKey 
+      };
+    } catch (error) {
+      console.error('Error storing API key:', error);
+      return { success: false, message: `Failed to store ${provider} API key: ${error.message}` };
+    }
+  }
+
+  // Get masked API key for display
+  getMaskedApiKey(provider) {
+    const apiKey = this.getApiKey(provider);
+    if (!apiKey) {
+      return '';
+    }
+    return this.keyManager.maskKey(apiKey);
+  }
+
+  // Validate stored API key
+  validateStoredApiKey(provider) {
+    const apiKey = this.getApiKey(provider);
+    if (!apiKey) {
+      return { valid: false, message: `No ${provider} API key configured` };
+    }
+    return this.keyManager.validateApiKey(provider, apiKey);
+  }
+
+  // Clear all API keys for security
+  clearAllApiKeys() {
+    const clearedKeys = this.keyManager.clearAllKeys();
+    const modelConfig = this.getModelConfig();
+    modelConfig.groqApiKey = '';
+    modelConfig.openrouterApiKey = '';
+    this.setModelConfig(modelConfig);
+    return clearedKeys;
+  }
+
   getCurrentProvider() {
     return this.getModelConfig().provider;
   }
@@ -120,12 +197,30 @@ class ConfigService {
     const currentProvider = provider || modelConfig.provider;
     
     switch (currentProvider) {
-      case 'groq':
-        // Prefer environment variable, fallback to stored config
-        return process.env.GROQ_API_KEY || modelConfig.groqApiKey || '';
-      case 'openrouter':
-        // Prefer environment variable, fallback to stored config
-        return process.env.OPENROUTER_API_KEY || modelConfig.openrouterApiKey || '';
+      case 'groq': {
+        // First try to decrypt user-configured key
+        const storedKey = modelConfig.groqApiKey;
+        if (storedKey && storedKey.trim() !== '') {
+          const decryptedKey = this.keyManager.retrieveKey(storedKey);
+          if (decryptedKey) {
+            return decryptedKey;
+          }
+        }
+        // Fallback to environment variable for development only
+        return process.env.GROQ_API_KEY || '';
+      }
+      case 'openrouter': {
+        // First try to decrypt user-configured key
+        const storedKey = modelConfig.openrouterApiKey;
+        if (storedKey && storedKey.trim() !== '') {
+          const decryptedKey = this.keyManager.retrieveKey(storedKey);
+          if (decryptedKey) {
+            return decryptedKey;
+          }
+        }
+        // Fallback to environment variable for development only
+        return process.env.OPENROUTER_API_KEY || '';
+      }
       default:
         return null;
     }
